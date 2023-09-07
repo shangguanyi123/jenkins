@@ -1,5 +1,5 @@
 #encoding=utf-8
-import pytest
+
 from selenium import webdriver
 
 @pytest.fixture(scope='function')#表示这是一个 pytest fixture，作用域为测试函数级别（方法级别）。
