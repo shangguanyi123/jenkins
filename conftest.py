@@ -10,7 +10,6 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from API_bot import Robot
 
 url = 'http://spider.aikonchem.com:9013'
 
@@ -52,76 +51,6 @@ def driver(request):
 # 配置日志记录 其中%(asctime)s表示日志记录的时间，%(levelname)s表示日志级别，%(message)s表示日志消息内容。
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-@pytest.mark.hookwrapper
-def pytest_runtest_makereport(item):
-    """
-    测试失败时获取 WebDriver 对象并在 HTML 报告中嵌入截图。
-    """
-    # 获取pytest-html插件
-    pytest_html = item.config.pluginmanager.getplugin('html')
-    # 暂停当前函数的执行，等待测试用例执行完毕后再继续执行 目的：检查测试用例是否通过
-    outcome = yield
-    # 获取测试用例的执行结果
-    report = outcome.get_result()
-    # 检查测试报告对象中是否有一个名为 'extra' 的属性，如果有额外则获取其值，如果没有则将其设置为一个空列表 目的：为了确保在没有额外信息的情况下不会出现错误
-    extra = getattr(report, 'extra', [])
-    # 如果是测试函数的执行阶段（'call'）或者测试用例的准备阶段（'setup'），则执行后续操作
-    if report.when == 'call' or report.when == "setup":
-
-        # 检查测试用例是否标记为预期失败
-        xfail = hasattr(report, 'wasxfail')
-        # 判断执行结果（跳过、失败）以及是否标记为预期失败来决定是否执行后续操作
-        if (report.skipped and xfail) or (report.failed and not xfail):
-            driver = item.funcargs['driver']  # 获取 driver 对象
-            try:
-                # 截图
-                screenshot = driver.get_screenshot_as_png()
-                # 转码base64
-                encode_str = base64.b64encode(screenshot)
-                encoded_image = str(encode_str, 'utf-8')
-
-                # 将 base64 编码的图片嵌入到 HTML 报告中
-                html = f'''
-                <div>
-                    <img src="data:image/png;base64,{encoded_image}" id="screenshot_img" alt="screenshot" 
-                         style="width:304px;height:228px;cursor:pointer;" 
-                         onclick="openBase64()" align="right"/>
-                </div>
-                <script>
-                    function openBase64() {{
-                        const img = document.getElementById('screenshot_img');
-                        const win = window.open('', '_blank');
-                        win.document.write('<img src="' + img.src + '" style="width:100%; height:auto;">');
-                    }}
-                </script>
-                '''
-                extra.append(pytest_html.extras.html(html))
-            except NoSuchElementException as e:
-                logging.info("截图失败 无搜索元素异常：%s", e)
-            except Exception as e:
-                logging.info("截图失败：%s", e)
-
-        report.extra = extra
-
-@pytest.hookimpl(trylast=True) #该钩子函数在其他同一阶段的钩子函数执行完毕后执行
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
-
-    if exitstatus == pytest.ExitCode.OK:  # 测试用例全部运行成功
-        report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
-        if report_path:
-            # Robot().APIwenben('a2b线上环境所有测试用例运行成功！', ['shangguanyi'])
-            # Robot().APIwenjian(report_path)
-            pass
-    elif exitstatus == pytest.ExitCode.TESTS_FAILED: # 测试用例有运行失败的
-        report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
-        if report_path:
-            Robot().APIwenben('1st Scientific线上环境报错，详情请查看测试报告！',['shangguanyi'])
-            Robot().APIwenjian(report_path)
-            directory = os.getcwd() + '/error_screenshot'
-            files_and_dirs = os.listdir(directory)
-            for i in files_and_dirs:
-                if '1st Scientific' in i:
-                    Robot().APItuwen('360报错截图',f'http://121.196.232.124:8001/error_screenshot/{i}',f'http://121.196.232.124:8001/error_screenshot/{i}',i)
 
 class WebAutomation:
     def __init__(self, driver):
