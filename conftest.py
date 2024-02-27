@@ -1,50 +1,53 @@
 # encoding=utf-8
-import pytest, time, logging, os, threading ,json
+import base64
+
+import pytest, time, logging, os ,json
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from sql import MySQLHelper_cookies
 
-url = 'http://spider.aikonchem.com:48888/'
-db = MySQLHelper_cookies()
+from API_bot import Robot
 
-@pytest.fixture(scope='function')  # 表示这是一个 pytest fixture，作用域为测试函数级别（方法级别）。
+url = 'http://spider.aikonchem.com:9013'
+
+@pytest.fixture(scope='class')  # 表示这是一个 pytest fixture，作用域为测试函数级别（方法级别）。
 def driver(request):
-    identity_marker = request.node.get_closest_marker("identity") #获取与测试函数相标记为identity
-    if identity_marker is not None:
-        username = identity_marker.args[0] # 返回这个元组中的第一个参数，即user2
-        cookie_data = db.execute_query(f"SELECT session, token FROM cookies WHERE username = '{username}'")
-    else:
-        # 如果没有标记，默认使用 'user1' 身份
-        cookie_data = db.execute_query("select session,token from cookies where username = 'user1'")
-
     options = webdriver.ChromeOptions()  # 定义一个 ChromeOptions 对象，可以用来设置启动 Chrome 浏览器的一些参数。
-    #options.add_argument('--headless')  # 开启无界面模式（无窗口运行）
-    #options.add_argument('blink-settings=imagesEnabled=false')  # 不加载图片, 提升速度
+    options.add_argument('--headless')  # 开启无界面模式（无窗口运行）
+    #options.add_argument('--blink-settings=imagesEnabled=false')  # 不加载图片, 提升速度
+    # 禁用沙箱
+    options.add_argument("--no-sandbox")
+    #options.add_argument("--disable-dev-shm-usage")
+    # 设置浏览器窗口大小为1366x768,服务器必须设置，否则会报错
+    options.add_argument('--window-size=3840,2160')
+    #options.add_argument("--start-maximized")
     # 去掉不安全提示short
     options.add_experimental_option('excludeSwitches', ['enable-automation'])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_argument("--start-maximized")
-    #options.add_argument('--window-size=3840,2160')
     driver = webdriver.Chrome(options=options)  # 启动 Chrome 浏览器，并传入上面定义好的 ChromeOptions 对象。
     driver.get(f"{url}")
     driver.implicitly_wait(8)
-    cookies = [
-        {'name': 'qs_session', 'path': '/', 'value': cookie_data[0]['session']},
-        {'name': 'XSRF-TOKEN', 'path': '/', 'value': cookie_data[0]['token']}
-    ]
-    for i in cookies:
-        driver.add_cookie(i)
-    driver.refresh()
-
-    request.addfinalizer(driver.quit)  # 将 WebDriver 对象的 quit() 方法注册为测试结束后的清理函数，以确保测试用例结束后关闭浏览器进程。
+    time.sleep(2)
+    try:
+        driver.find_element(By.XPATH,'//*[@id="__nuxt"]/div/div/header/div/div[3]/div/div/span[1]').click()
+        input_email = driver.find_element(By.ID, "form_item_email")
+        input_email.clear()
+        input_email.send_keys('jingwenshuo@quantaspaces.com')
+        input_pwd = driver.find_element(By.ID, "form_item_password")
+        input_pwd.clear()
+        input_pwd.send_keys('jing.1751')
+        time.sleep(2)
+        driver.find_element(By.CLASS_NAME,'ant-btn.w-full.h-9.submit-buttom-bg').click()
+        time.sleep(1)
+        request.addfinalizer(driver.quit)  # 将 WebDriver 对象的 quit() 方法注册为测试结束后的清理函数，以确保测试用例结束后关闭浏览器进程。
+    except Exception as e:
+        print('driver函数报错:',e)
     return driver  # 将 WebDriver 对象返回，供测试函数使用。
-
-
 
 # 配置日志记录 其中%(asctime)s表示日志记录的时间，%(levelname)s表示日志级别，%(message)s表示日志消息内容。
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -64,6 +67,7 @@ def pytest_runtest_makereport(item):
     extra = getattr(report, 'extra', [])
     # 如果是测试函数的执行阶段（'call'）或者测试用例的准备阶段（'setup'），则执行后续操作
     if report.when == 'call' or report.when == "setup":
+
         # 检查测试用例是否标记为预期失败
         xfail = hasattr(report, 'wasxfail')
         # 判断执行结果（跳过、失败）以及是否标记为预期失败来决定是否执行后续操作
@@ -99,9 +103,9 @@ def pytest_runtest_makereport(item):
 
         report.extra = extra
 
-
 @pytest.hookimpl(trylast=True) #该钩子函数在其他同一阶段的钩子函数执行完毕后执行
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
+
     if exitstatus == pytest.ExitCode.OK:  # 测试用例全部运行成功
         report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
         if report_path:
@@ -111,21 +115,28 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     elif exitstatus == pytest.ExitCode.TESTS_FAILED: # 测试用例有运行失败的
         report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
         if report_path:
-            Robot().APIwenben('a2b线上环境报错，详情请查看测试报告！',['shangguanyi'])
+            Robot().APIwenben('1st Scientific线上环境报错，详情请查看测试报告！',['shangguanyi'])
             Robot().APIwenjian(report_path)
-            
+            directory = os.getcwd() + '/error_screenshot'
+            files_and_dirs = os.listdir(directory)
+            for i in files_and_dirs:
+                if '1st Scientific' in i:
+                    Robot().APItuwen('360报错截图',f'http://121.196.232.124:8001/error_screenshot/{i}',f'http://121.196.232.124:8001/error_screenshot/{i}',i)
+
 class WebAutomation:
     def __init__(self, driver):
         self.driver = driver
-
-    # 点击，class有多层，示例：.btn_add.mouse
-    def selenium_click(self, types, element, index=None):
+    def selenium_click(self, by_type, element, index=None):
         if index is None:
-            next_btn = self.driver.find_element(types, element)
+            next_btn = self.driver.find_element(by_type, element)
             self.driver.execute_script("arguments[0].click();", next_btn)
         else:
-            next_btn = self.driver.find_elements(types, element)[int(index)]
-            self.driver.execute_script("arguments[0].click();", next_btn)
+            next_btns = self.driver.find_elements(by_type, element)
+            if 0 <= int(index) < len(next_btns):
+                next_btn = next_btns[int(index)]
+                self.driver.execute_script("arguments[0].click();", next_btn)
+            else:
+                print(f"selenium_click Error: Index {index} is out of bounds.")
 
     # 输入
     def selenium_send(self, types, element, text, index=None):
@@ -181,7 +192,7 @@ class WebAutomation:
         if index is None:
             parent_element = self.driver.find_element(types, element)
         else:
-            parent_element = self.driver.find_elements(types, element)[int(index)]
+            parent_element = self.driver.find_element(types, element)[int(index)]
         self.driver.switch_to.frame(parent_element.find_element(By.TAG_NAME, 'iframe'))
 
     # 切出ifram
@@ -230,11 +241,8 @@ class WebAutomation:
             ele = self.driver.find_elements(types, element)[int(index)]
             ActionChains(self.driver).move_to_element(ele).move_by_offset(zuoyou, sahngxia).perform()
 
-def update_cookies(driver,username):
-    cookies = driver.get_cookies()
-    cookie_json = json.dumps(cookies, indent=2)  # 转为json
-    cookie_data = json.loads(cookie_json)  # 转为python字典
-    db.execute_update(
-        'UPDATE cookies SET token = "%s", session = "%s", update_time = "%s" WHERE username = "%s"' % (
-            cookie_data[0]['value'], cookie_data[2]['value'],time.strftime("%Y-%m-%d %H:%M:%S"), username)
-    )
+
+
+
+
+
