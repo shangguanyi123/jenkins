@@ -6,7 +6,7 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from sql import MySQLHelper_cookies
+
 
 url = 'http://spider.aikonchem.com:48888/'
 db = MySQLHelper_cookies()
@@ -100,19 +100,7 @@ def pytest_runtest_makereport(item):
         report.extra = extra
 
 
-@pytest.hookimpl(trylast=True) #该钩子函数在其他同一阶段的钩子函数执行完毕后执行
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    if exitstatus == pytest.ExitCode.OK:  # 测试用例全部运行成功
-        report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
-        if report_path:
-            # Robot().APIwenben('a2b线上环境所有测试用例运行成功！', ['shangguanyi'])
-            # Robot().APIwenjian(report_path)
-            pass
-    elif exitstatus == pytest.ExitCode.TESTS_FAILED: # 测试用例有运行失败的
-        report_path = terminalreporter._session.config.option.htmlpath # 获取测试报告路径
-        if report_path:
-            Robot().APIwenben('a2b线上环境报错，详情请查看测试报告！',['shangguanyi'])
-            Robot().APIwenjian(report_path)
+
             
 class WebAutomation:
     def __init__(self, driver):
@@ -230,11 +218,4 @@ class WebAutomation:
             ele = self.driver.find_elements(types, element)[int(index)]
             ActionChains(self.driver).move_to_element(ele).move_by_offset(zuoyou, sahngxia).perform()
 
-def update_cookies(driver,username):
-    cookies = driver.get_cookies()
-    cookie_json = json.dumps(cookies, indent=2)  # 转为json
-    cookie_data = json.loads(cookie_json)  # 转为python字典
-    db.execute_update(
-        'UPDATE cookies SET token = "%s", session = "%s", update_time = "%s" WHERE username = "%s"' % (
-            cookie_data[0]['value'], cookie_data[2]['value'],time.strftime("%Y-%m-%d %H:%M:%S"), username)
-    )
+
